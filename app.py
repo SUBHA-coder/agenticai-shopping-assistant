@@ -12,24 +12,25 @@ from backend import (
     build_final_report,
 )
 
+# ---- Load environment ----
 load_dotenv()
-
 st.set_page_config(page_title="Shopping Assistant (INR)", page_icon="🛍️", layout="wide")
 
-# ---- Aesthetic Header ----
+# ---- CSS for aesthetics ----
 st.markdown(
     """
     <style>
     .big-title {font-size: 34px; font-weight: 700; margin-bottom: 4px;}
     .subtle {color: #6b7280;}
-    .card {background: #0f172a0d; padding: 16px 18px; border-radius: 16px; border: 1px solid #e5e7eb;}
+    .card {background: #f9f9f9; padding: 16px 18px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 2px 2px 8px rgba(0,0,0,0.05);}
     .pill {display:inline-block; padding:4px 10px; border-radius:999px; border:1px solid #e5e7eb; font-size:12px; color:#374151; background:#fff;}
-    a {text-decoration: none;}
+    a {text-decoration: none; color: #1a73e8;}
     </style>
     """,
     unsafe_allow_html=True
 )
 
+# ---- Header ----
 st.markdown('<div class="big-title">🛍️ Shopping Assistant</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtle">Research products, compare prices, and get a clean recommendation for Indian buyers.</div>', unsafe_allow_html=True)
 st.markdown("")
@@ -49,36 +50,42 @@ with col3:
 
 run = st.button("🔎 Run Search", use_container_width=True)
 
-# ---- Results ----
+# ---- Results Section ----
 if run:
     try:
         llm = get_llm()
 
+        # Step 1: Research product
         with st.spinner("Researching product details..."):
             research = research_product(llm, query)
 
+        # Step 2: Fetch prices
         with st.spinner("Fetching prices..."):
             prices_json = search_prices_serper(f"{query} best price")
 
-        # Build table rows
+        # Step 3: Build DataFrame with INR conversion
         rows = make_price_rows(prices_json, top_n=int(top_n), usd_inr=float(usd_inr))
         df = pd.DataFrame(rows)
 
-        # Summarize for LLM
+        # Step 4: Summarize prices for final report
         price_summary_text = summarize_prices_for_prompt(prices_json, top_n=int(top_n), usd_inr=float(usd_inr))
 
-        with st.spinner("Generating final report..."):
+        # Step 5: Generate final report from LLM
+        with st.spinner("Generating final recommendation..."):
             report = build_final_report(llm, research, price_summary_text)
 
-        st.markdown("## 🔍 Research")
+        # ---- Display Research ----
+        st.markdown("## 🔍 Product Research")
         st.markdown(f'<div class="card">{research}</div>', unsafe_allow_html=True)
 
-        st.markdown("## 💸 Price Comparison (converted to INR)")
+        # ---- Display Prices ----
+        st.markdown("## 💸 Price Comparison (INR)")
         if not df.empty:
             st.dataframe(df, use_container_width=True, hide_index=True)
         else:
             st.info("No shopping results found.")
 
+        # ---- Display Final Recommendation ----
         st.markdown("## ✅ Final Recommendation")
         st.markdown(f'<div class="card">{report}</div>', unsafe_allow_html=True)
 
